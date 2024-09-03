@@ -155,23 +155,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Generate.cpp" />
-    <ClCompile Include="Logger.cpp" />
-    <ClCompile Include="main_veritas.cpp" />
-    <ClCompile Include="Parser.cpp" />
-    <ClCompile Include="Tokenizer.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="Generate.h" />
-    <ClInclude Include="llvm_includes.h" />
-    <ClInclude Include="Logger.h" />
-    <ClInclude Include="Node.h" />
-    <ClInclude Include="Parser.h" />
-    <ClInclude Include="token.h" />
-    <ClInclude Include="Tokenizer.h" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="main.vrs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="src\Generate.cpp" />
+    <ClCompile Include="src\Logger.cpp" />
+    <ClCompile Include="src\main_veritas.cpp" />
+    <ClCompile Include="src\Parser.cpp" />
+    <ClCompile Include="src\Tokenizer.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\headers\Generate.h" />
+    <ClInclude Include="src\headers\llvm_includes.h" />
+    <ClInclude Include="src\headers\Logger.h" />
+    <ClInclude Include="src\headers\Node.h" />
+    <ClInclude Include="src\headers\Parser.h" />
+    <ClInclude Include="src\headers\token.h" />
+    <ClInclude Include="src\headers\Tokenizer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

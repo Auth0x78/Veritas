@@ -1,4 +1,4 @@
-#include "logger.h"
+#include "headers/logger.h"
 
 //Set default value of _level
 LogLevel Logger::_level = LogLevel::Info;

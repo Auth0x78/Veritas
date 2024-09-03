@@ -1,4 +1,4 @@
-#include "Tokenizer.h"
+#include "headers/Tokenizer.h"
 
 Tokenizer::Tokenizer(const std::string& program)
 	: m_index(0), m_currentLine(1), m_program(program) 

@@ -4,10 +4,10 @@
 #include <sstream>
 #include <filesystem>
 
-#include "llvm_includes.h"
-#include "Tokenizer.h"
-#include "Generate.h"
-#include "Logger.h"
+#include "headers/llvm_includes.h"
+#include "headers/Tokenizer.h"
+#include "headers/Generate.h"
+#include "headers/Logger.h"
 
 // #define TEST_LLVM 0
 

@@ -1,4 +1,4 @@
-#include "Generate.h"
+#include "headers/Generate.h"
 
 Generator::Generator(std::unique_ptr<Program> program, const std::string& moduleName, const std::string& outPath)
 	: m_program(std::move(program)), m_outPath(outPath), m_moduleName(moduleName)
