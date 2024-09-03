@@ -15,6 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Language_Sample.vrs" />
     <None Include="main.vrs" />
   </ItemGroup>
   <ItemGroup>
