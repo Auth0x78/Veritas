@@ -35,7 +35,3 @@ For questions or support, please open an issue on GitHub or contact the project 
 ---
 
 Thank you!
-
-```
-
-Feel free to customize it further based on the specifics of your project!
