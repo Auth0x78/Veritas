@@ -1,0 +1,20 @@
+// This is a comment
+/* This is also a comment */
+
+// File: Language_sample
+// File Extension: vrs (veritas)
+
+// Extern functions can be declared
+fn extern printf(msg: i8*, ...) -> i32;
+fn extern scanf(format: i8*, ...) -> i32;
+
+// Main function
+fn main () -> i32
+{
+	// Supported floating types: f32, f64
+	let a: f32 = 9.22 * 2;
+	// Supported integer types: i8, i16, i32, i64, i128, & also its unsgined version is just u8, u16 ...
+	let b: i32 = 10;
+
+	return a * (b - 0.1);
+}
