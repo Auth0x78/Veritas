@@ -52,7 +52,7 @@ int main(int argc, char* argv[])
 	if (!parser.Parse())
 		return -1;
 	
-	std::string outFile = "out.ll";
+	std::string outFile = "./tempVeritas/out.ll";
 	Generator llvmGEN(parser.getProgram(), path, outFile);
 	
 	llvmGEN.Generate();

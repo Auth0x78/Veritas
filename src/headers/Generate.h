@@ -30,6 +30,8 @@ public:
 	llvm::Value* CreateGlobalDecl(const std::unique_ptr<DeclStmt>& declStmt);
 
 	llvm::Function* CreateFunction(const std::unique_ptr<FnStmt>& fnStmt);
+	
+	llvm::CallInst* CreateFunctionCall(const std::unique_ptr<FnCall>& FunctionCall);
 
 	void GenerateCompoundStatement(const std::unique_ptr<CompoundStmt>& cmpndStmt);
 

@@ -243,18 +243,18 @@ std::unique_ptr<Stmt> Parser::ParseStmt()
 			break;
 			case TokenType::IDENT:
 			{
-				if(peek().has_value())
+				if(peek(1).has_value())
 				{
-					if (peek().value().type == TokenType::LParan)
+					if (peek(1).value().type == TokenType::LParan)
 					{
 						// Function call
 						auto fnCall = ParseFunctionCall(/*IDENT & '(' is not consumed*/);
 						if (fnCall.get() != nullptr)
 							Statement->stmt = std::move(fnCall);
 						else
-							nullptr;
+							return nullptr;
 					}
-					else if (peek().value().type == TokenType::EQUALS)
+					else if (peek(1).value().type == TokenType::EQUALS)
 					{
 						Logger::fmtLog("Not implemented (\nFile:%s, line: %ld)!", __FILE__, __LINE__);
 						return nullptr;
@@ -300,6 +300,11 @@ std::unique_ptr<DeclStmt> Parser::ParseDeclStmt()
 	auto ExprTree = ParseExpr();
 	if (ExprTree.get() == NULL)
 		return NULL;
+
+	if (PeekAndCheck(TokenType::SEMICOLON))
+		consume();
+	else
+		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Missing ';' at the end of line: %ld", peek(-1).value().lineNum), NULL);
 	
 	declStmt->expr = std::move(ExprTree);
 	return declStmt;
@@ -314,6 +319,11 @@ std::unique_ptr<ReturnStmt> Parser::ParseReturnStmt()
 	if (ExprTree.get() == NULL)
 		return NULL;
 
+	if (PeekAndCheck(TokenType::SEMICOLON))
+		consume();
+	else
+		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Missing ';' at the end of line: %ld", peek(-1).value().lineNum), NULL);
+
 	retStmt->value = std::move(ExprTree);
 	return retStmt;
 }
@@ -323,12 +333,41 @@ std::unique_ptr<FnCall> Parser::ParseFunctionCall(/* IDENT & LParan is not consu
 	auto fnCall = std::make_unique<FnCall>();
 	fnCall->name = consume(/* TOKEN: IDENT */).value;
 	consume(/* TOKEN: LParan */);
+	
+	if (peek().has_value() && peek().value().type == TokenType::RParan)
+		return fnCall;
+	else
+	{
+		fnCall->args = ParseArgsList();
+		if (fnCall->args.get() == nullptr)
+			return nullptr;
+	}
+	if (PeekAndCheck(TokenType::SEMICOLON))
+		consume();
+	else
+		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected a ';' at line: %ld", peek(-1).value().lineNum), nullptr);
+	
+	return fnCall;
+}
 
+std::unique_ptr<ArgsList> Parser::ParseArgsList()
+{
+	auto argsList = std::make_unique<ArgsList>();
+	
 	while (peek().has_value() && peek().value().type != TokenType::RParan)
 	{
+		auto arg = ParseExpr();
+		if (arg.get() != nullptr)
+			argsList->list.emplace_back(std::move(arg));
+		else
+			return nullptr;
 
+		if (peek().value().type == TokenType::COMMA)
+			consume();
 	}
-	return nullptr;
+
+	consume(/*Consume the RParan ')'*/);
+	return argsList;
 }
 
 std::unique_ptr<Expr> Parser::ParseExpr()
@@ -338,7 +377,9 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 	std::stack<std::unique_ptr<Expr>> nodeStack;
 	std::stack<Token> opStack;
 
-	while (peek().has_value() && peek().value().type != TokenType::SEMICOLON)
+	while (peek().has_value() && 
+		peek().value().type != TokenType::SEMICOLON && 
+		peek().value().type != TokenType::COMMA)
 	{
 		switch (peek().value().type)
 		{
@@ -368,6 +409,18 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 			}
 			break;
 			
+			case TokenType::STRING_LITERAL:
+			{
+				auto LExpr = std::make_unique<Expr>();
+
+				auto strLiteral = std::make_unique<Literal>();
+				strLiteral->type = PrimitiveDataType::str;
+				strLiteral->value = consume().value;
+
+				LExpr->value = std::move(strLiteral);
+				nodeStack.push(std::move(LExpr));
+			}
+			break;
 			case TokenType::IDENT:
 			{
 				auto IExpr = std::make_unique<Expr>();
@@ -473,11 +526,6 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 		opStack.pop();
 	}
 
-	if (PeekAndCheck(TokenType::SEMICOLON))
-		consume();
-	else
-		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Missing ';' at the end of line: %ld", peek(-1).value().lineNum), NULL);
-	
 	if (nodeStack.size() > 1)
 		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected operator before operand!"), NULL);
 
@@ -545,6 +593,9 @@ PrimitiveDataType Parser::ptrTypeof(PrimitiveDataType type)
 		break;
 	case PrimitiveDataType::f64:
 		return PrimitiveDataType::f64ptr;
+		break;
+	case PrimitiveDataType::str:
+		return PrimitiveDataType::i8ptr;
 		break;
 	default:
 		return PrimitiveDataType::EMPTY;

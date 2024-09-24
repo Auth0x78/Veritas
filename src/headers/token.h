@@ -70,7 +70,7 @@ enum PrimitiveDataType
     i16ptr,
     i32ptr,
     i64ptr,
-    
+
     // Float
     f32,
     f64,
@@ -80,8 +80,9 @@ enum PrimitiveDataType
 
     // Mega Types
     u128,
-    i128
+    i128,
 
+    str
 };
 
 struct Token
@@ -91,10 +92,10 @@ struct Token
     PrimitiveDataType dataType; /*Only used when token is a BuiltIn dataType*/
     size_t lineNum;
 
-    Token(TokenType _type, std::string _val, size_t n, PrimitiveDataType dt = PrimitiveDataType::EMPTY)
-        : type(_type), lineNum(n), dataType(dt)
+    Token(TokenType _type, std::string& _val, size_t line, PrimitiveDataType dt = PrimitiveDataType::EMPTY)
+        : type(_type), lineNum(line), dataType(dt)
     {
         if (_val != "")
-            value = _val;
+            value = std::move(_val);
     }
 };

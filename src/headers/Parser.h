@@ -24,6 +24,7 @@ public:
 	std::unique_ptr<DeclStmt> ParseDeclStmt();
 	std::unique_ptr<ReturnStmt> ParseReturnStmt();
 	std::unique_ptr<FnCall> ParseFunctionCall();
+	std::unique_ptr<ArgsList> ParseArgsList();
 	std::unique_ptr<Expr> ParseExpr();
 
 	std::unique_ptr<Program> getProgram();

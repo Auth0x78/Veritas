@@ -27,16 +27,15 @@ struct Literal
 };
 
 struct Expr;
-//struct Arg
-//{
-//	std::unique_ptr<Expr>
-//};
+struct ArgsList
+{
+	std::vector<std::unique_ptr<Expr>> list;
+};
 
 struct FnCall
 {
 	std::string name;
-	//std::vector<std::unique_ptr<>> arguements;
-	std::vector<std::unique_ptr<Expr>> args;
+	std::unique_ptr<ArgsList> args;
 };
 
 struct ReturnStmt

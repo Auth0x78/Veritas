@@ -168,6 +168,52 @@ bool Tokenizer::Tokenize()
 				return false;
 			}
 		}
+		else if (peek().value() == '\"')
+		{
+			consume();
+
+			// String Literal
+			std::string buffer;
+			buffer.reserve(256);
+
+			while (peek().has_value() && peek().value() != '\"')
+			{
+				if (peek().value() == '\\') 
+				{
+					// Escape Sequence
+					consume();
+					if (peek().has_value())
+						switch (consume())
+						{
+						case 'n':
+							buffer.push_back('\n');
+							break;
+						case 't':
+							buffer.push_back('\n');
+							break;
+						case '\"':
+							buffer.push_back('\"');
+							break;
+						case '0':
+							buffer.push_back('\0');
+							break;
+						default:
+							Logger::fmtLog("Invalid escape sequence found '%c' on line: %ld", peek(-1).value(), m_currentLine);
+							return false;
+						}
+
+					else
+					{
+						Logger::fmtLog(LogLevel::Error, "Expected a escape sequence after '\\' on line: %ld", m_currentLine);
+						return false;
+					}
+				}
+				else
+					buffer.push_back(consume());
+			}
+			consume();
+			m_tokens.emplace_back(TokenType::STRING_LITERAL, buffer, m_currentLine, PrimitiveDataType::str);
+		}
 		else if (std::isspace(peek().value()))
 		{
 			if (consume() == '\n')
@@ -185,7 +231,8 @@ bool Tokenizer::Tokenize()
 
 std::vector<Token>& Tokenizer::getTokens()
 {
-	m_tokens.push_back(Token(TokenType::_EOF, "$", INT_MAX));
+	std::string eofStr = "$";
+	m_tokens.push_back(Token(TokenType::_EOF, eofStr, INT_MAX));
 	return m_tokens;
 }
 

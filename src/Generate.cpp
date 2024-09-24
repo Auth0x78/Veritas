@@ -104,7 +104,7 @@ llvm::Function* Generator::CreateFunction(const std::unique_ptr<FnStmt>& fnStmt)
 	llvm::Type* retType = findTypeFromPrimitive(fnStmt->returnType);
 
 	if (retType == nullptr) {
-		Logger::fmtLog("Unkown function return type found: %s", *retType);
+		Logger::fmtLog(LogLevel::Error, "Unkown function return type found!");
 		return nullptr;
 	}
 
@@ -123,7 +123,7 @@ llvm::Function* Generator::CreateFunction(const std::unique_ptr<FnStmt>& fnStmt)
 	// If there is no compound statement then just return the current
 	if (fnStmt->compoundStmt.get() == NULL)
 		return fn;
-
+	
 	// Create function block
 	auto entry = llvm::BasicBlock::Create(*ctx, "entry", fn);
 	builder->SetInsertPoint(entry);
@@ -134,6 +134,27 @@ llvm::Function* Generator::CreateFunction(const std::unique_ptr<FnStmt>& fnStmt)
 
 	m_FunctionType = nullptr;
 	return fn;
+}
+
+llvm::CallInst* Generator::CreateFunctionCall(const std::unique_ptr<FnCall>& FunctionCall)
+{
+	std::vector<llvm::Value*> ArgsV;
+
+	for (auto& argExpr : FunctionCall->args->list)
+		ArgsV.push_back(GenerateExpr(argExpr));
+
+	int count = 0;
+	if (FunctionCall->name == "printf")
+	{
+		// Convert all Argv of type f32 to f64, reason: Only God knows why, but only that way "%f" works
+		for (auto& argv : ArgsV)
+			if (argv->getType()->isFloatTy())
+				argv = builder->CreateFPExt(argv, llvm::Type::getDoubleTy(*ctx), "ftod" + std::to_string(count));
+	}
+
+	llvm::Function* calledFn = cModule->getFunction(FunctionCall->name);
+	llvm::CallInst* Call = builder->CreateCall(calledFn, ArgsV, FunctionCall->name + "calltmp");
+	return Call;
 }
 
 void Generator::GenerateCompoundStatement(const std::unique_ptr<CompoundStmt>& cmpndStmt)
@@ -185,7 +206,7 @@ void Generator::GenerateStatment(const std::unique_ptr<Stmt>& stmt)
 		}
 		void operator()(const std::unique_ptr<FnCall>& fnCall)
 		{
-			/*TODO*/
+			gen.CreateFunctionCall(fnCall);
 		}
 		Generator& gen;
 	};
@@ -246,9 +267,14 @@ llvm::Value* Generator::GenerateExpr(const std::unique_ptr<Expr>& expr)
 			{
 			case PrimitiveDataType::i32:
 				return llvm::ConstantInt::get(llvm::Type::getInt32Ty(*gen.ctx), llvm::APInt(32, lit->value, 10));
-				break;
 			case PrimitiveDataType::f64:
 				return llvm::ConstantFP::get(llvm::Type::getDoubleTy(*gen.ctx), std::stod(lit->value));
+			case PrimitiveDataType::str:
+			{
+				// Create a string global variable
+				llvm::Value* strVal = gen.builder->CreateGlobalStringPtr(lit->value);
+				return strVal; // Return pointer to the string
+			}
 			default:
 				Logger::fmtLog(LogLevel::Error, "Unkown type literal found!");
 				return nullptr;
