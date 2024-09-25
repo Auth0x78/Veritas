@@ -23,15 +23,18 @@ public:
 	std::unique_ptr<Stmt> ParseStmt();
 	std::unique_ptr<DeclStmt> ParseDeclStmt();
 	std::unique_ptr<ReturnStmt> ParseReturnStmt();
-	std::unique_ptr<FnCall> ParseFunctionCall();
+	std::unique_ptr<Expr> ParseFunctionCallExpr();
+	std::unique_ptr<FnCall> ParseFunctionCallStmt();
 	std::unique_ptr<ArgsList> ParseArgsList();
 	std::unique_ptr<Expr> ParseExpr();
-
+	std::unique_ptr<Expr> CreateVarExpr(const std::string& name);
+	std::unique_ptr<Expr> CreateLiteralExpr(const std::string& value, PrimitiveDataType dataType);
 	std::unique_ptr<Program> getProgram();
 private:
 	std::optional<Token> peek(int ahead = 0);
 	Token consume();
 	std::optional<Token> PeekAndCheck(TokenType type, int ahead = 0);
+	bool ApplyOperator();
 	std::unique_ptr<Expr> GenerateBinaryOpNode(Token& op, std::unique_ptr<Expr>& LHS, std::unique_ptr<Expr>& RHS);
 	PrimitiveDataType ptrTypeof(PrimitiveDataType type);
 
@@ -40,4 +43,7 @@ private:
 	std::unique_ptr<Program> m_programAST;
 	
 	std::unordered_map<TokenType, std::pair<int, char>> OperandTuple;
+	
+	std::stack<std::unique_ptr<Expr>> m_nodeStack;
+	std::stack<Token> m_operatorStack;
 };

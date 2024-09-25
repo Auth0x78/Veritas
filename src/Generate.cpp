@@ -87,7 +87,6 @@ llvm::Function* Generator::CreateFunction(const std::unique_ptr<FnStmt>& fnStmt)
 
 	llvm::FunctionType* fnType = nullptr;
 
-	/*TODO: Generate types and params */
 	bool isVarArgs = false;
 
 	std::vector<llvm::Type*> paramsList;
@@ -290,6 +289,10 @@ llvm::Value* Generator::GenerateExpr(const std::unique_ptr<Expr>& expr)
 			}
 
 			return nullptr;
+		}
+		llvm::Value* operator()(const std::unique_ptr<FnCall>& fnCall)
+		{
+			return gen.CreateFunctionCall(fnCall);
 		}
 
 		Generator& gen;
