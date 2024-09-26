@@ -34,7 +34,7 @@ int main(int argc, char* argv[])
 		std::ifstream in(path);
 		if (!in.is_open())
 		{
-			Logger::fmtLog(LogLevel::Error, "Failed to open file: %s", path);
+			Logger::fmtLog(LogLevel::Error, "Failed to open file: %s", path.data());
 			return -1;
 		}
 

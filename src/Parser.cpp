@@ -248,7 +248,7 @@ std::unique_ptr<Stmt> Parser::ParseStmt()
 					if (peek(1).value().type == TokenType::LParan)
 					{
 						// Function call
-						auto fnCall = ParseFunctionCall(/*IDENT & '(' is not consumed*/);
+						auto fnCall = ParseFunctionCallStmt(/*IDENT & '(' is not consumed*/);
 						if (fnCall.get() != nullptr)
 							Statement->stmt = std::move(fnCall);
 						else
@@ -328,7 +328,31 @@ std::unique_ptr<ReturnStmt> Parser::ParseReturnStmt()
 	return retStmt;
 }
 
-std::unique_ptr<FnCall> Parser::ParseFunctionCall(/* IDENT & LParan is not consumed */)
+std::unique_ptr<Expr> Parser::ParseFunctionCallExpr()
+{
+	auto expr = std::make_unique<Expr>();
+	auto fnCall = std::make_unique<FnCall>();
+	
+	fnCall->name = consume(/* TOKEN: IDENT */).value;
+	consume(/* TOKEN: LParan */);
+
+	if (peek().has_value() && peek().value().type == TokenType::RParan)
+	{
+		expr->value = std::move(fnCall);
+		return expr;
+	}
+	else
+	{
+		fnCall->args = ParseArgsList();
+		if (fnCall->args.get() == nullptr)
+			return nullptr;
+	}
+
+	expr->value = std::move(fnCall);
+	return expr;
+}
+
+std::unique_ptr<FnCall> Parser::ParseFunctionCallStmt(/* IDENT & LParan is not consumed */)
 {
 	auto fnCall = std::make_unique<FnCall>();
 	fnCall->name = consume(/* TOKEN: IDENT */).value;
@@ -372,10 +396,12 @@ std::unique_ptr<ArgsList> Parser::ParseArgsList()
 
 std::unique_ptr<Expr> Parser::ParseExpr()
 {
-	auto expr = std::make_unique<Expr>();
+	if (m_nodeStack.size() != 0)
+		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Node stack contains previously added nodes"), nullptr);
+	if (m_operatorStack.size() != 0)
+		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Operator stack is not empty"), nullptr);
 
-	std::stack<std::unique_ptr<Expr>> nodeStack;
-	std::stack<Token> opStack;
+	auto mainExpr = std::make_unique<Expr>();
 
 	while (peek().has_value() && 
 		peek().value().type != TokenType::SEMICOLON && 
@@ -384,86 +410,41 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 		switch (peek().value().type)
 		{
 			case TokenType::INT_LITERAL:
-			{
-				auto LExpr = std::make_unique<Expr>();
-
-				auto intLiteral = std::make_unique<Literal>();
-				intLiteral->type = PrimitiveDataType::i32;
-				intLiteral->value = consume().value;
-				
-				LExpr->value = std::move(intLiteral);
-				nodeStack.push(std::move(LExpr));
-			}
-			break;
-			
+				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::i32)));
+				break;
 			case TokenType::FLOAT_LITERAL:
-			{
-				auto LExpr = std::make_unique<Expr>();
-
-				auto intLiteral = std::make_unique<Literal>();
-				intLiteral->type = PrimitiveDataType::f64;
-				intLiteral->value = consume().value;
-
-				LExpr->value = std::move(intLiteral);
-				nodeStack.push(std::move(LExpr));
-			}
-			break;
-			
+				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::f64)));
+				break;
 			case TokenType::STRING_LITERAL:
-			{
-				auto LExpr = std::make_unique<Expr>();
-
-				auto strLiteral = std::make_unique<Literal>();
-				strLiteral->type = PrimitiveDataType::str;
-				strLiteral->value = consume().value;
-
-				LExpr->value = std::move(strLiteral);
-				nodeStack.push(std::move(LExpr));
-			}
-			break;
+				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::str)));
+				break;
 			case TokenType::IDENT:
-			{
-				auto IExpr = std::make_unique<Expr>();
-
-				auto ident = std::make_unique<Ident>();
-				ident->name = consume().value;
-
-				IExpr->value = std::move(ident);
-				nodeStack.push(std::move(IExpr));
-			}
-			break;
-
+				if (peek(1).value().type == TokenType::LParan)
+				{
+					m_nodeStack.push(std::move(ParseFunctionCallExpr()));
+				}
+				else
+				{
+					// This is a case where the ident is a variable
+					m_nodeStack.push(std::move(CreateVarExpr(consume().value)));
+				}
+				break;
 			case TokenType::LParan:
-				opStack.push(consume());
-			break;
+				m_operatorStack.push(consume());
+				break;
 			
 			case TokenType::RParan:
 			{
-				Token token = consume();
+				consume(/* Consume '(' */);
 				// If the scanned character is an ‘)’, pop form a new binOP with the prev 2 nodes on nodeStack
 				// until an ‘(‘ is encountered.
-				while (!opStack.empty() && opStack.top().type != TokenType::LParan)
-				{
-					std::unique_ptr<Expr> LHS;
-					std::unique_ptr<Expr> RHS;
-
-					if (nodeStack.empty())
-						RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected an expression before operator on line: %ld", opStack.top().lineNum), NULL);
-					RHS = std::move(nodeStack.top());
-					nodeStack.pop();
-
-					if (nodeStack.empty())
-						RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected an expression after operator on line: %ld", opStack.top().lineNum), NULL);
-					LHS = std::move(nodeStack.top());
-					nodeStack.pop();
-
-					nodeStack.push(std::move(GenerateBinaryOpNode(opStack.top(), LHS, RHS)));
-					opStack.pop();
-				}
-				if (!opStack.empty() && opStack.top().type == TokenType::LParan)
-					opStack.pop();
+				while (!m_operatorStack.empty() && m_operatorStack.top().type != TokenType::LParan)
+					if (!ApplyOperator(/*Directly accesses Node and Operator Stack*/))
+						return nullptr;
+				if (!m_operatorStack.empty() && m_operatorStack.top().type == TokenType::LParan)
+					m_operatorStack.pop();
 				else
-					RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected a '(' for ')' found on line: %ld!", token.lineNum),NULL);
+					RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected a '(' for ')' found on line: %ld!", peek(-1).value().lineNum), nullptr);
 			}
 			break;
 			
@@ -473,71 +454,71 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 			case TokenType::STAR:
 			case TokenType::MODULUS:
 			{
-				auto binOpNode = std::make_unique<BinaryOp>();
 				Token curr = consume();
-				while (!opStack.empty() && (OperandTuple[curr.type].first < OperandTuple[opStack.top().type].first || 
-					OperandTuple[curr.type].first == OperandTuple[opStack.top().type].first && 
+				while (!m_operatorStack.empty() && (OperandTuple[curr.type].first < OperandTuple[m_operatorStack.top().type].first || 
+					OperandTuple[curr.type].first == OperandTuple[m_operatorStack.top().type].first && 
 					OperandTuple[curr.type].second == 'L'))
 				{
-					Token op = opStack.top();
-					opStack.pop();
-					binOpNode->type = op.type;
-					
-					if (nodeStack.empty())
-						RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected an expression before operator on line: %ld", op.lineNum), NULL);
-					binOpNode->RHS = std::move(nodeStack.top());
-					nodeStack.pop();
-
-					if (nodeStack.empty())
-						RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected an expression after operator on line: %ld", op.lineNum), NULL);
-					binOpNode->LHS = std::move(nodeStack.top());
-					nodeStack.pop();
-
-					auto opExpr = std::make_unique<Expr>();
-					opExpr->value = std::move(binOpNode);
-					nodeStack.push(std::move(opExpr));
+					if (!ApplyOperator())
+						return nullptr;
 				}
-				opStack.push(curr);
+
+				// Push the current operator onto stack
+				m_operatorStack.push(curr);
 			}
 			break;
-			
+
 			default:
 				RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Unexpected token found on line: %lu", peek().value().lineNum), NULL);
 		}
 	}
 	
 	// Pop all the remaining elements from the stack
-	while (!opStack.empty())
+	while (!m_operatorStack.empty())
+		if (!ApplyOperator())
+			return nullptr;
+
+	if (m_nodeStack.size() != 1)
 	{
-		std::unique_ptr<Expr> LHS;
-		std::unique_ptr<Expr> RHS;
-
-		if (nodeStack.empty())
-			RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected an expression before operator on line: %ld", opStack.top().lineNum), NULL);
-		RHS = std::move(nodeStack.top());
-		nodeStack.pop();
-		
-		if (nodeStack.empty())
-			RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected an expression after operator on line: %ld", opStack.top().lineNum), NULL);
-		LHS = std::move(nodeStack.top());
-		nodeStack.pop();
-
-		nodeStack.push(std::move(GenerateBinaryOpNode(opStack.top(), LHS, RHS)));
-		opStack.pop();
+		Logger::fmtLog(LogLevel::Error, "Mismatched operands and operators in expression!");
+		return nullptr;
 	}
 
-	if (nodeStack.size() > 1)
-		RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected operator before operand!"), NULL);
+	mainExpr = std::move(m_nodeStack.top());
+	m_nodeStack.pop();
 
-	expr = std::move(nodeStack.top());
-	return expr;
+	return mainExpr;
+}
+
+std::unique_ptr<Expr> Parser::CreateVarExpr(const std::string& name)
+{
+	auto IdentExpr = std::make_unique<Expr>();
+
+	auto ident = std::make_unique<Ident>();
+	ident->name = name;
+
+	IdentExpr->value = std::move(ident);
+
+	return IdentExpr;
+}
+
+std::unique_ptr<Expr> Parser::CreateLiteralExpr(const std::string& value, PrimitiveDataType dataType)
+{
+	auto LiteralExpr = std::make_unique<Expr>();
+
+	auto _Literal = std::make_unique<Literal>();
+	_Literal->type = dataType;
+	_Literal->value = value;
+
+	LiteralExpr->value = std::move(_Literal);
+	
+	return LiteralExpr;
 }
 
 std::unique_ptr<Program> Parser::getProgram()
 {
 	return std::move(m_programAST);
 }
-
 
 std::optional<Token> Parser::peek(int ahead)
 {
@@ -560,18 +541,30 @@ std::optional<Token> Parser::PeekAndCheck(TokenType type, int ahead)
 	return {};
 }
 
-std::unique_ptr<Expr> Parser::GenerateBinaryOpNode(Token& op, std::unique_ptr<Expr>& LHS, std::unique_ptr<Expr>& RHS)
+bool Parser::ApplyOperator()
 {
-	auto binOpNode = std::make_unique<BinaryOp>();
+	if (m_nodeStack.size() < 2)
+	{
+		Logger::fmtLog(LogLevel::Error, "Insufficient operands for operator on line: %ld", m_operatorStack.top().lineNum);
+		return false;
+	}
 
-	binOpNode->type = op.type;
-	binOpNode->RHS = std::move(RHS);
+	auto RHS = std::move(m_nodeStack.top());
+	m_nodeStack.pop();
+	auto LHS = std::move(m_nodeStack.top());
+	m_nodeStack.pop();
+
+	auto binOpNode = std::make_unique<BinaryOp>();
+	binOpNode->type = m_operatorStack.top().type;
 	binOpNode->LHS = std::move(LHS);
-	
-	auto opExpr = std::make_unique<Expr>();
-	opExpr->value = std::move(binOpNode);
-	
-	return opExpr;
+	binOpNode->RHS = std::move(RHS);
+
+	auto expr = std::make_unique<Expr>();
+	expr->value = std::move(binOpNode);
+	m_nodeStack.push(std::move(expr));
+
+	m_operatorStack.pop();
+	return true;
 }
 
 PrimitiveDataType Parser::ptrTypeof(PrimitiveDataType type)

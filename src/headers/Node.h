@@ -59,7 +59,7 @@ struct BinaryOp
 
 struct Expr
 {
-	std::variant<std::unique_ptr<BinaryOp>, std::unique_ptr<Ident>, std::unique_ptr<Literal>> value;
+	std::variant<std::unique_ptr<BinaryOp>, std::unique_ptr<Ident>, std::unique_ptr<Literal>, std::unique_ptr<FnCall>> value;
 };
 
 struct CompoundStmt;
