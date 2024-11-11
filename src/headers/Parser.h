@@ -35,6 +35,7 @@ private:
 	Token consume();
 	std::optional<Token> PeekAndCheck(TokenType type, int ahead = 0);
 	bool ApplyOperator();
+	std::unique_ptr<Expr> GenerateBinaryOpNode(Token& op, std::unique_ptr<Expr>& LHS, std::unique_ptr<Expr>& RHS);
 	PrimitiveDataType ptrTypeof(PrimitiveDataType type);
 
 	std::vector<Token> m_tokens;

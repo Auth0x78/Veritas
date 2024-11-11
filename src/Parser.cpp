@@ -567,6 +567,21 @@ bool Parser::ApplyOperator()
 	return true;
 }
 
+std::unique_ptr<Expr> Parser::GenerateBinaryOpNode(Token& op, std::unique_ptr<Expr>& LHS, std::unique_ptr<Expr>& RHS)
+{
+	auto binOpNode = std::make_unique<BinaryOp>();
+	binOpNode->type = m_operatorStack.top().type;
+	binOpNode->LHS = std::move(LHS);
+	binOpNode->RHS = std::move(RHS);
+
+	auto expr = std::make_unique<Expr>();
+	expr->value = std::move(binOpNode);
+	m_nodeStack.push(std::move(expr));
+
+	m_operatorStack.pop();
+	return true;
+}
+
 PrimitiveDataType Parser::ptrTypeof(PrimitiveDataType type)
 {
 	switch (type)
