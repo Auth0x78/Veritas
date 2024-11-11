@@ -31,7 +31,7 @@ Vertias is licensed under the [MIT License](LICENSE). See the `LICENSE` file for
 
 ## Contact
 
-For questions or support, please open an issue on GitHub or contact the project maintainers at [akshat.dighade@gmail.com](mailto:akshat.dighade@gmail.com).
+For questions or support, please open an issue on GitHub or contact the project maintainers at [auth0x78@gmail.com](mailto:auth0x78+github@gmail.com).
 ---
 
 Thank you!
