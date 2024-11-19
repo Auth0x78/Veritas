@@ -377,6 +377,8 @@ std::unique_ptr<FnCall> Parser::ParseFunctionCallStmt(/* IDENT & LParan is not c
 std::unique_ptr<ArgsList> Parser::ParseArgsList()
 {
 	auto argsList = std::make_unique<ArgsList>();
+
+	// TODO: Break the argslist into exprs
 	
 	while (peek().has_value() && peek().value().type != TokenType::RParan)
 	{
@@ -390,7 +392,7 @@ std::unique_ptr<ArgsList> Parser::ParseArgsList()
 			consume();
 	}
 
-	consume(/*Consume the RParan ')'*/);
+	consume(/* Consume the RParan ')' */);
 	return argsList;
 }
 
@@ -420,9 +422,7 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 				break;
 			case TokenType::IDENT:
 				if (peek(1).value().type == TokenType::LParan)
-				{
 					m_nodeStack.push(std::move(ParseFunctionCallExpr()));
-				}
 				else
 				{
 					// This is a case where the ident is a variable
@@ -435,7 +435,7 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 			
 			case TokenType::RParan:
 			{
-				consume(/* Consume '(' */);
+				consume(/* Consume ')' */);
 				// If the scanned character is an ‘)’, pop form a new binOP with the prev 2 nodes on nodeStack
 				// until an ‘(‘ is encountered.
 				while (!m_operatorStack.empty() && m_operatorStack.top().type != TokenType::LParan)
@@ -474,9 +474,10 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 	}
 	
 	// Pop all the remaining elements from the stack
-	while (!m_operatorStack.empty())
+	while (!m_operatorStack.empty()) {
 		if (!ApplyOperator())
 			return nullptr;
+	}
 
 	if (m_nodeStack.size() != 1)
 	{
@@ -549,21 +550,12 @@ bool Parser::ApplyOperator()
 		Logger::fmtLog(LogLevel::Error, "Insufficient operands for operator on line: %ld", m_operatorStack.top().lineNum);
 		return false;
 	}
-
 	auto RHS = std::move(m_nodeStack.top());
 	m_nodeStack.pop();
 	auto LHS = std::move(m_nodeStack.top());
 	m_nodeStack.pop();
 
-	auto binOpNode = std::make_unique<BinaryOp>();
-	binOpNode->type = m_operatorStack.top().type;
-	binOpNode->LHS = std::move(LHS);
-	binOpNode->RHS = std::move(RHS);
-
-	auto expr = std::make_unique<Expr>();
-	expr->value = std::move(binOpNode);
-	m_nodeStack.push(std::move(expr));
-
+	m_nodeStack.push(GenerateBinaryOpNode(m_operatorStack.top(), LHS, RHS));
 	m_operatorStack.pop();
 	return true;
 }
