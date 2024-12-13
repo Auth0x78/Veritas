@@ -128,7 +128,7 @@ llvm::Function* Generator::CreateFunction(const std::unique_ptr<FnStmt>& fnStmt)
 	builder->SetInsertPoint(entry);
 	m_FunctionType = fn->getFunctionType();
 
-	// Generate Compound Statment
+	// Generate Compound Statement
 	GenerateCompoundStatement(fnStmt->compoundStmt);
 
 	m_FunctionType = nullptr;
@@ -159,10 +159,10 @@ llvm::CallInst* Generator::CreateFunctionCall(const std::unique_ptr<FnCall>& Fun
 void Generator::GenerateCompoundStatement(const std::unique_ptr<CompoundStmt>& cmpndStmt)
 {
 	for (auto& s : cmpndStmt->statementList)
-		GenerateStatment(s);
+		GenerateStatement(s);
 }
 
-void Generator::GenerateStatment(const std::unique_ptr<Stmt>& stmt)
+void Generator::GenerateStatement(const std::unique_ptr<Stmt>& stmt)
 {
 	struct stmtVisitor
 	{
@@ -232,7 +232,7 @@ llvm::Value* Generator::GenerateExpr(const std::unique_ptr<Expr>& expr)
 			{
 				switch (binop->type) {
 				case TokenType::PLUS:
-					return gen.builder->CreateFAdd(LHS, RHS, "PLUStmp");
+					return gen.builder->CreateFAdd(LHS, RHS, "plustmp");
 				case TokenType::MINUS:
 					return gen.builder->CreateFSub(LHS, RHS, "subtmp");
 				case TokenType::STAR:
@@ -248,7 +248,7 @@ llvm::Value* Generator::GenerateExpr(const std::unique_ptr<Expr>& expr)
 			// Else perform Integer operations
 			switch (binop->type) {
 			case TokenType::PLUS:
-				return gen.builder->CreateAdd(LHS, RHS, "PLUStmp");
+				return gen.builder->CreateAdd(LHS, RHS, "plustmp");
 			case TokenType::MINUS:
 				return gen.builder->CreateSub(LHS, RHS, "subtmp");
 			case TokenType::STAR:
@@ -284,7 +284,7 @@ llvm::Value* Generator::GenerateExpr(const std::unique_ptr<Expr>& expr)
 		{
 			if (gen.m_symbolMap.count(ident->name) == 1)
 			{
-				auto vInfo = gen.m_symbolMap[ident->name];
+				auto& vInfo = gen.m_symbolMap[ident->name];
 				return gen.builder->CreateLoad(vInfo.vType, vInfo.vAddr, ident->name + "load");
 			}
 
@@ -302,7 +302,7 @@ llvm::Value* Generator::GenerateExpr(const std::unique_ptr<Expr>& expr)
 	return std::visit(visitor, expr->value);
 }
 
-void Generator::saveModuleToFile()
+void Generator::saveModuleToFile() const
 {
 	std::error_code errorCode;
 	llvm::raw_fd_ostream outLLFile(m_outPath, errorCode);
@@ -337,7 +337,7 @@ int Generator::getTypePriority(llvm::Type* type)
 	// PLUS more type categories as needed
 	return -1; // Unknown types have lowest priority
 }
-llvm::Value* Generator::autoTypeCast(llvm::Value* val, llvm::Type* targetType) {
+llvm::Value* Generator::autoTypeCast(llvm::Value* val, llvm::Type* targetType) const {
 	llvm::Type* valType = val->getType();
 
 	if (valType == targetType)

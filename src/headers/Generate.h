@@ -35,17 +35,17 @@ public:
 
 	void GenerateCompoundStatement(const std::unique_ptr<CompoundStmt>& cmpndStmt);
 
-	void GenerateStatment(const std::unique_ptr<Stmt>& stmt);
+	void GenerateStatement(const std::unique_ptr<Stmt>& stmt);
 
 	llvm::Value* GenerateExpr(const std::unique_ptr<Expr>& expr);
 
-	void saveModuleToFile();
+	void saveModuleToFile() const;
 
 	void moduleInit();
 
 	int getTypePriority(llvm::Type* type);
 
-	llvm::Value* autoTypeCast(llvm::Value* val, llvm::Type* targetType);
+	llvm::Value* autoTypeCast(llvm::Value* val, llvm::Type* targetType) const;
 
 	llvm::Type* findTypeFromPrimitive(PrimitiveDataType pdt);
 
