@@ -334,10 +334,13 @@ std::unique_ptr<Expr> Parser::ParseFunctionCallExpr()
 	auto fnCall = std::make_unique<FnCall>();
 	
 	fnCall->name = consume(/* TOKEN: IDENT */).value;
-	consume(/* TOKEN: LParan */);
+
+	//No need to consume as parsing args list will do automatically
+	//consume(/* TOKEN: LParan */);
 
 	if (peek().has_value() && peek().value().type == TokenType::RParan)
 	{
+		consume(/*TOKEN: LParan*/);
 		expr->value = std::move(fnCall);
 		return expr;
 	}
@@ -356,10 +359,13 @@ std::unique_ptr<FnCall> Parser::ParseFunctionCallStmt(/* IDENT & LParan is not c
 {
 	auto fnCall = std::make_unique<FnCall>();
 	fnCall->name = consume(/* TOKEN: IDENT */).value;
-	consume(/* TOKEN: LParan */);
+	//No need to consume as parsing args list will do automatically
+	// consume(/* TOKEN: LParan */); 
 	
-	if (peek().has_value() && peek().value().type == TokenType::RParan)
+	if (peek().has_value() && peek().value().type == TokenType::RParan) {
+		consume(/* TOKEN: LParan */);
 		return fnCall;
+	}
 	else
 	{
 		fnCall->args = ParseArgsList();
@@ -377,20 +383,115 @@ std::unique_ptr<FnCall> Parser::ParseFunctionCallStmt(/* IDENT & LParan is not c
 std::unique_ptr<ArgsList> Parser::ParseArgsList()
 {
 	auto argsList = std::make_unique<ArgsList>();
-	
-	while (peek().has_value() && peek().value().type != TokenType::RParan)
-	{
-		auto arg = ParseExpr();
-		if (arg.get() != nullptr)
-			argsList->list.emplace_back(std::move(arg));
-		else
-			return nullptr;
+	// Push the LParen of function call
+	m_operatorStack.push(consume(/*LParen Token*/));
 
-		if (peek().value().type == TokenType::COMMA)
+	while (peek().has_value() && (peek().value().type != TokenType::RParan || m_operatorStack.size() != 0)) {
+		// Now individual argument needs to be parsed
+
+		while (peek().has_value() && peek().value().type != TokenType::COMMA) {
+
+			switch (peek().value().type)
+			{
+			case TokenType::INT_LITERAL:
+				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::i32)));
+				break;
+			case TokenType::FLOAT_LITERAL:
+				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::f64)));
+				break;
+			case TokenType::STRING_LITERAL:
+				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::str)));
+				break;
+			case TokenType::IDENT:
+				if (peek(1).has_value() && peek(1).value().type == TokenType::LParan)
+				{
+					m_nodeStack.push(std::move(ParseFunctionCallExpr()));
+				}
+				else
+				{
+					// This is a case where the ident is a variable
+					m_nodeStack.push(std::move(CreateVarExpr(consume().value)));
+				}
+				break;
+			case TokenType::LParan:
+				m_operatorStack.push(consume());
+				break;
+
+			case TokenType::RParan:
+			{
+				consume();
+				while (!m_operatorStack.empty() && m_operatorStack.top().type != TokenType::LParan) {
+					if (!ApplyOperator()) {
+						return nullptr;
+					}
+				}
+				if (!m_operatorStack.empty() && m_operatorStack.top().type == TokenType::LParan) {
+						m_operatorStack.pop();
+						if (m_operatorStack.empty()) {
+							// parsing of arg list complete
+							// exit this loop add the current parsed arg into argsList;
+							argsList->list.emplace_back(std::move(m_nodeStack.top()));
+							m_nodeStack.pop();
+							return argsList;
+						}
+				}
+			}
+			break;
+			case TokenType::PLUS:
+			case TokenType::MINUS:
+			case TokenType::FORWARD_SLASH:
+			case TokenType::STAR:
+			case TokenType::MODULUS:
+			{
+				Token curr = consume();
+				while (!m_operatorStack.empty() && (OperandTuple[curr.type].first < OperandTuple[m_operatorStack.top().type].first ||
+					OperandTuple[curr.type].first == OperandTuple[m_operatorStack.top().type].first &&
+					OperandTuple[curr.type].second == 'L'))
+				{
+					if (!ApplyOperator())
+						return nullptr;
+				}
+
+				// Push the current operator onto stack
+				m_operatorStack.push(curr);
+			}
+			break;
+			default:
+				RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Unexpected token found on line: %lu", peek().value().lineNum), NULL);
+			}
+		}
+
+		if(peek().has_value() && peek().value().type == TokenType::COMMA) {
 			consume();
+		}
+		else {
+			Logger::fmtLog(LogLevel::Error, "Missing a ',' after the arguement finished on line: %lu", peek(-1).value().lineNum);
+			return nullptr;
+		}
+
+		// Pop all the remaining elements from the stack
+		while (!m_operatorStack.empty()) {
+			if (m_operatorStack.top().type == TokenType::LParan) {
+				if (m_operatorStack.size() > 1) {
+					Logger::fmtLog(LogLevel::Error, "Expected a ')' on line: %lu", peek(-1).value().lineNum);
+					return nullptr;
+				}
+				else break;
+			}
+			else if (!ApplyOperator())
+				return nullptr;
+		}
+
+		if (m_nodeStack.size() != 1)
+		{
+			Logger::fmtLog(LogLevel::Error, "Mismatched operands and operators in expression!");
+			return nullptr;
+		}
+
+		argsList->list.emplace_back(std::move(m_nodeStack.top()));
+		m_nodeStack.pop();
 	}
 
-	consume(/*Consume the RParan ')'*/);
 	return argsList;
 }
 
@@ -403,9 +504,7 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 
 	auto mainExpr = std::make_unique<Expr>();
 
-	while (peek().has_value() && 
-		peek().value().type != TokenType::SEMICOLON && 
-		peek().value().type != TokenType::COMMA)
+	while (peek().has_value() && peek().value().type != TokenType::SEMICOLON)
 	{
 		switch (peek().value().type)
 		{
@@ -419,7 +518,7 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 				m_nodeStack.push(std::move(CreateLiteralExpr(consume().value, PrimitiveDataType::str)));
 				break;
 			case TokenType::IDENT:
-				if (peek(1).value().type == TokenType::LParan)
+				if (peek(1).has_value() && peek(1).value().type == TokenType::LParan)
 				{
 					m_nodeStack.push(std::move(ParseFunctionCallExpr()));
 				}
@@ -444,7 +543,7 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 				if (!m_operatorStack.empty() && m_operatorStack.top().type == TokenType::LParan)
 					m_operatorStack.pop();
 				else
-					RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected a '(' for ')' found on line: %ld!", peek(-1).value().lineNum), nullptr);
+					RUN_AND_RETURN(Logger::fmtLog(LogLevel::Error, "Expected a '(' on line: %ld!", peek(-1).value().lineNum), nullptr);
 			}
 			break;
 			
@@ -474,9 +573,14 @@ std::unique_ptr<Expr> Parser::ParseExpr()
 	}
 	
 	// Pop all the remaining elements from the stack
-	while (!m_operatorStack.empty())
-		if (!ApplyOperator())
+	while (!m_operatorStack.empty()) {
+		if (m_operatorStack.top().type == TokenType::LParan) {
+			Logger::fmtLog(LogLevel::Error, "Expected a ')' on line: %lu", m_operatorStack.top().lineNum);
 			return nullptr;
+		}
+		else if (!ApplyOperator())
+			return nullptr;
+	}
 
 	if (m_nodeStack.size() != 1)
 	{

@@ -26,6 +26,7 @@ public:
 	std::unique_ptr<Expr> ParseFunctionCallExpr();
 	std::unique_ptr<FnCall> ParseFunctionCallStmt();
 	std::unique_ptr<ArgsList> ParseArgsList();
+	bool ParseArg(std::unique_ptr<ArgsList>& argsList);
 	std::unique_ptr<Expr> ParseExpr();
 	std::unique_ptr<Expr> CreateVarExpr(const std::string& name);
 	std::unique_ptr<Expr> CreateLiteralExpr(const std::string& value, PrimitiveDataType dataType);
